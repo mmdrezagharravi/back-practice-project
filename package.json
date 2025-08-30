@@ -1,0 +1,38 @@
+{
+  "name": "practice_project",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "nodemon src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mmdrezagharravi/back-practice-project.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/mmdrezagharravi/back-practice-project/issues"
+  },
+  "homepage": "https://github.com/mmdrezagharravi/back-practice-project#readme",
+  "dependencies": {
+    "apollo-server-express": "^3.13.0",
+    "bcrypt": "^6.0.0",
+    "express": "^4.21.2",
+    "graphql": "^16.11.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/bcrypt": "^6.0.0",
+    "@types/express": "^5.0.3",
+    "@types/jsonwebtoken": "^9.0.10",
+    "nodemon": "^3.1.10",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.2"
+  }
+}
