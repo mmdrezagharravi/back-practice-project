@@ -7,7 +7,7 @@ import { resolvers } from "./schema/resolvers";
 import { connectDB } from "./config/db";
 import { getUserFromToken } from "./middleware/auth";
 
-const PORT = process.env.PORT || 4000;
+const PORT = process.env.PORT || 5000;
 
 async function bootstrap() {
   // اتصال به دیتابیس
