@@ -10,15 +10,12 @@ import { getUserFromToken } from "./middleware/auth";
 const PORT = process.env.PORT || 5000;
 
 async function bootstrap() {
-  // اتصال به دیتابیس
   await connectDB(process.env.MONGO_URI || "");
 
-  // تعریف اپلیکیشن express
   const app: Application = express();
   app.use(cors());
   app.use(express.json());
 
-  // ساخت سرور Apollo
   const server = new ApolloServer({
     typeDefs,
     resolvers,
@@ -30,11 +27,9 @@ async function bootstrap() {
     },
   });
 
-  // استارت سرور Apollo
   await server.start();
   server.applyMiddleware({ app, path: "/graphql" });
 
-  // لیسن سرور
   app.listen(PORT, () => {
     console.log(
       `🚀 Server ready at http://localhost:${PORT}${server.graphqlPath}`
@@ -42,7 +37,6 @@ async function bootstrap() {
   });
 }
 
-// اجرای بوت‌استرپ
 bootstrap().catch((e) => {
   console.error("❌ Server crashed:", e);
   process.exit(1);

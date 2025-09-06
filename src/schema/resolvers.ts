@@ -220,7 +220,6 @@ export const resolvers: IResolvers<any, Context> = {
     },
   },
 
-  // Field resolvers (برای زمانی که populate نشده‌اند)
   User: {
     teams: async (parent) => Team.find({ members: parent._id }),
   },
