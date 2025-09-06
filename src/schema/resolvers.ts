@@ -134,7 +134,6 @@ export const resolvers: IResolvers<any, Context> = {
       if (!can) throw new Error("Forbidden");
 
       if (input.assigneeId) {
-        // اطمینان از این‌که assignee عضو تیم پروژه است
         const project = await Project.findById(projectId);
         if (!project) throw new Error("Project not found");
         const member = await isTeamMember(
