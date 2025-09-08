@@ -1,9 +1,11 @@
 import { IResolvers } from "@graphql-tools/utils";
+import { ApolloError } from "apollo-server-express";
 import { User } from "../models/User";
 import { Team } from "../models/Team";
 import { Project } from "../models/Project";
 import { Task } from "../models/Task";
 import { Comment } from "../models/Comment";
+import { ForbiddenError, NotFoundError, ValidationError } from "../utils/error";
 import { signToken, requireAuth } from "../middleware/auth";
 import {
   canManageTeam,
@@ -28,8 +30,13 @@ export const resolvers: IResolvers<any, Context> = {
 
     projects: async (_p, { teamId }, { user }) => {
       requireAuth(user);
-      const isMember = await isTeamMember(user._id, new Types.ObjectId(teamId));
-      if (!isMember && user.role !== "ADMIN") throw new Error("Forbidden");
+      if (!Types.ObjectId.isValid(teamId)) {
+        throw ValidationError("Invalid teamId format");
+      }
+      const team = await Team.findById(teamId);
+      if (!team) throw NotFoundError("Team");
+      const isMember = await isTeamMember(user._id, team._id);
+      if (!isMember && user.role !== "ADMIN") throw ForbiddenError();
       return Project.find({ team: teamId });
     },
 
@@ -86,9 +93,9 @@ export const resolvers: IResolvers<any, Context> = {
 
     login: async (_p, { email, password }) => {
       const user = await User.findOne({ email });
-      if (!user) throw new Error("Invalid credentials");
+      if (!user) throw new ApolloError("User not found !!!");
       const ok = await user.comparePassword(password);
-      if (!ok) throw new Error("Invalid credentials");
+      if (!ok) throw new ApolloError("Password is incorrect :(");
       const token = signToken(user);
       return { token, user };
     },
@@ -161,12 +168,12 @@ export const resolvers: IResolvers<any, Context> = {
     updateTask: async (_p, { id, input }, { user }) => {
       requireAuth(user);
       const can = await hasTaskAccess(user, new Types.ObjectId(id));
-      if (!can) throw new Error("Forbidden");
+      if (!can) throw new Error("خطای دسترسی ب این امکان!!!");
 
       if (input.assigneeId) {
-        const t = await Task.findById(id).populate("project");
-        if (!t) throw new Error("Task not found");
-        const project = t.project as any;
+        const task = await Task.findById(id).populate("project");
+        if (!task) throw NotFoundError("Task");
+        const project = task.project as any;
         const member = await isTeamMember(
           new Types.ObjectId(input.assigneeId),
           project.team
@@ -193,14 +200,14 @@ export const resolvers: IResolvers<any, Context> = {
         .populate("assignee")
         .populate({ path: "project", populate: { path: "team" } });
 
-      if (!task) throw new Error("Task not found");
+      if (!task) throw NotFoundError("Task");
       return task;
     },
 
     deleteTask: async (_p, { id }, { user }) => {
       requireAuth(user);
-      const t = await Task.findById(id);
-      if (!t) return true;
+      const task = await Task.findById(id);
+      if (!task) throw NotFoundError("Task");
 
       const can = await hasTaskAccess(user, new Types.ObjectId(id));
       if (!can) throw new Error("Forbidden");
