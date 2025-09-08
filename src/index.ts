@@ -1,16 +1,28 @@
 import "dotenv/config";
+import http from "http";
+
 import express, { Application } from "express";
 import cors from "cors";
 import { ApolloServer } from "apollo-server-express";
+
 import { typeDefs } from "./schema/typeDefs";
 import { resolvers } from "./schema/resolvers";
 import { connectDB } from "./config/db";
 import { getUserFromToken } from "./middleware/auth";
+import mongoose from "mongoose";
+
+interface Context {
+  user?: any | null;
+}
 
 const PORT = process.env.PORT || 5000;
 
 async function bootstrap() {
-  await connectDB(process.env.MONGO_URI || "");
+  const uri = process.env.MONGO_URI;
+  if (!uri) {
+    throw new Error("MONGO_UR is not defined in .env file. ");
+  }
+  await connectDB(uri);
 
   const app: Application = express();
   app.use(cors());
@@ -30,14 +42,28 @@ async function bootstrap() {
   await server.start();
   server.applyMiddleware({ app, path: "/graphql" });
 
-  app.listen(PORT, () => {
+  const httpServer = http.createServer(app);
+
+  httpServer.listen(PORT, () => {
     console.log(
       `🚀 Server ready at http://localhost:${PORT}${server.graphqlPath}`
     );
   });
-}
 
+  process.on("SIGINT", async () => {
+    console.log(" Shutting down server...");
+    httpServer.close();
+    await mongoose.disconnect();
+  });
+
+  process.on("SIGTERM", async () => {
+    console.log(" Shutting down server...");
+    httpServer.close();
+    await mongoose.disconnect();
+    process.exit(0);
+  });
+}
 bootstrap().catch((e) => {
-  console.error("❌ Server crashed:", e);
+  console.error(" Server crashed:", e);
   process.exit(1);
 });
