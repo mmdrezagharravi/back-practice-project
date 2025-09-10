@@ -1,0 +1,22 @@
+version: "3.9"
+services:
+  app:
+    build: .
+    container_name: practice_app
+    ports:
+      - "5000:5000"
+    environment:
+      - PORT=5000
+      - MONGO_URI=mongodb://root:example@mongo:27017/task_manager
+      - JWT_SECRET=supersecret_change_me
+    depends_on:
+      - mongo
+
+  mongo:
+    image: docker.arvancloud.ir/mongo:6
+    container_name: practice_mongo
+    ports:
+      - "27018:27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=root
+      - MONGO_INITDB_ROOT_PASSWORD=example
