@@ -107,6 +107,10 @@ export const resolvers: IResolvers<any, Context> = {
 
     createTeam: async (_p, { name }, { user }) => {
       requireAuth(user);
+      const exists = await Team.findOne({ name });
+      if (exists) {
+        throw new Error("tema with this name already exists !!!");
+      }
       const team = await Team.create({
         name,
         members: [user._id],
@@ -116,13 +120,12 @@ export const resolvers: IResolvers<any, Context> = {
     },
 
     addUserToTeam: async (_p, { teamId, userId }, { user }) => {
-      requireAuth(user);
+      requireAdmin(user);
       const can = await canManageTeam(user, new Types.ObjectId(teamId));
       if (!can) throw new Error("Forbidden");
 
       const team = await Team.findById(teamId);
       if (!team) throw new Error("Team not found");
-
       const u = await User.findById(userId);
       if (!u) throw new Error("User not found");
 
@@ -135,6 +138,10 @@ export const resolvers: IResolvers<any, Context> = {
 
     createProject: async (_p, { teamId, name }, { user }) => {
       requireAuth(user);
+      const exists = await Project.findOne({ name });
+      if (exists) {
+        throw new Error("Projecvt with this name already exists !!!");
+      }
       const isMember = await isTeamMember(user._id, new Types.ObjectId(teamId));
       if (!isMember && user.role !== "ADMIN") throw new Error("Forbidden");
       return Project.create({ name, team: teamId });
