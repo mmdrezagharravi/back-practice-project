@@ -1,5 +1,5 @@
 import jwt from "jsonwebtoken";
-import { ApolloError } from "apollo-server-express";
+import { ApolloError, ForbiddenError } from "apollo-server-express";
 import { User, IUser } from "../models/User";
 import { error } from "console";
 
@@ -33,4 +33,17 @@ export const requireAuth = (user: IUser | null) => {
     throw new ApolloError("Unauthorized: user not logged in or token invalid");
   }
   return user;
+};
+
+export const requireAdmin = (user: IUser | null) => {
+  if (user?.role !== "ADMIN") {
+    throw new ForbiddenError("only admins can perform this action . !! ");
+  }
+};
+
+export const requireManager = (user: IUser | null) => {
+  requireAuth(user);
+  if (user?.role !== "MANAGER" && user?.role !== "ADMIN") {
+    throw new ForbiddenError("only admins can perform this action . !! ");
+  }
 };

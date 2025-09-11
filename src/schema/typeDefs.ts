@@ -23,6 +23,11 @@ export const typeDefs = gql`
     updatedAt: String!
   }
 
+  type Query {
+    me: User
+    users: [User!]!
+  }
+
   type Team {
     id: ID!
     name: String!

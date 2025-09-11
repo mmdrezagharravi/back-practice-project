@@ -6,7 +6,7 @@ import { Project } from "../models/Project";
 import { Task } from "../models/Task";
 import { Comment } from "../models/Comment";
 import { ForbiddenError, NotFoundError, ValidationError } from "../utils/error";
-import { signToken, requireAuth } from "../middleware/auth";
+import { signToken, requireAuth, requireAdmin } from "../middleware/auth";
 import {
   canManageTeam,
   hasProjectAccess,
@@ -22,6 +22,11 @@ interface Context {
 export const resolvers: IResolvers<any, Context> = {
   Query: {
     me: async (_p, _a, { user }) => user || null,
+
+    users: async (_p, _a, { user }) => {
+      requireAdmin(user);
+      return User.find({});
+    },
 
     teams: async (_p, _a, { user }) => {
       requireAuth(user);
