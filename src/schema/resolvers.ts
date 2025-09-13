@@ -104,7 +104,22 @@ export const resolvers: IResolvers<any, Context> = {
       const token = signToken(user);
       return { token, user };
     },
+    updateUser: async (_p, { userId, name, role }, { user }) => {
+      requireAdmin(user);
 
+      const updateFields: any = {};
+      if (name !== undefined) updateFields.name = name;
+      if (role !== undefined) updateFields.role = role;
+
+      const updatedUser = await User.findByIdAndUpdate(
+        userId,
+        { $set: updateFields },
+        { new: true }
+      );
+
+      if (!updatedUser) throw new Error("User not found");
+      return updatedUser;
+    },
     createTeam: async (_p, { name }, { user }) => {
       requireAuth(user);
       const exists = await Team.findOne({ name });
@@ -118,7 +133,6 @@ export const resolvers: IResolvers<any, Context> = {
       });
       return team;
     },
-
     addUserToTeam: async (_p, { teamId, userId }, { user }) => {
       requireAdmin(user);
       const can = await canManageTeam(user, new Types.ObjectId(teamId));

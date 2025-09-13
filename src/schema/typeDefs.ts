@@ -118,6 +118,8 @@ export const typeDefs = gql`
     register(input: RegisterInput!): AuthPayload!
     login(email: String!, password: String!): AuthPayload!
 
+    updateUser(userId: ID!, name: String, role: Role): User!
+
     createTeam(name: String!): Team!
     addUserToTeam(teamId: ID!, userId: ID!): Team!
 

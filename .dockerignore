@@ -1,0 +1,5 @@
+node_mudules
+dist 
+.git
+Dockerfile
+docker-compose.yml
