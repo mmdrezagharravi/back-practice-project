@@ -52,6 +52,7 @@ export const typeDefs = gql`
     title: String!
     description: String
     status: TaskStatus!
+    dueDate: String
     project: Project!
     assignee: User
     comments: [Comment!]!
@@ -71,7 +72,7 @@ export const typeDefs = gql`
   type TaskPage {
     items: [Task!]!
     page: Int!
-    limit: Int!
+    limit: Int
     totalItems: Int!
     totalPages: Int!
   }
@@ -92,6 +93,7 @@ export const typeDefs = gql`
     description: String
     status: TaskStatus
     assigneeId: ID
+    dueDate: String
   }
 
   input TaskUpdateInput {
@@ -99,6 +101,7 @@ export const typeDefs = gql`
     description: String
     status: TaskStatus
     assigneeId: ID
+    dueDate: String
   }
 
   type Query {

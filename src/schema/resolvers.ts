@@ -6,7 +6,7 @@ import { Project } from "../models/Project";
 import { Task } from "../models/Task";
 import { Comment } from "../models/Comment";
 import { ForbiddenError, NotFoundError, ValidationError } from "../utils/error";
-import { signToken, requireAuth, requireAdmin } from "../middleware/auth";
+import { signToken, requireAuth, requireRole } from "../middleware/auth";
 import {
   canManageTeam,
   hasProjectAccess,
@@ -24,13 +24,19 @@ export const resolvers: IResolvers<any, Context> = {
     me: async (_p, _a, { user }) => user || null,
 
     users: async (_p, _a, { user }) => {
-      requireAdmin(user);
+      requireRole(user, ["ADMIN"]);
       return User.find({});
     },
-
     teams: async (_p, _a, { user }) => {
-      requireAuth(user);
-      return Team.find({ members: user._id });
+      requireAuth;
+
+      if (user.role === "ADMIN") {
+        return Team.find({});
+      }
+      if (user.role === "MANAGER") {
+        return Team.find({ members: user._id });
+      }
+      throw Error("only admin and manager ");
     },
 
     projects: async (_p, { teamId }, { user }) => {
@@ -47,7 +53,7 @@ export const resolvers: IResolvers<any, Context> = {
 
     tasks: async (
       _p,
-      { projectId, page = 1, limit = 10, status },
+      { projectId, page = 3, limit = 100, status },
       { user }
     ) => {
       requireAuth(user);
@@ -55,6 +61,10 @@ export const resolvers: IResolvers<any, Context> = {
       if (!can) throw new Error("Forbidden");
 
       const filter: any = { project: projectId };
+
+      if (user.role !== "ADMIN") {
+        filter.assignee = user._id;
+      }
       if (status) filter.status = status;
 
       const skip = (page - 1) * limit;
@@ -80,13 +90,12 @@ export const resolvers: IResolvers<any, Context> = {
     task: async (_p, { id }, { user }) => {
       requireAuth(user);
       const can = await hasTaskAccess(user, new Types.ObjectId(id));
-      if (!can) throw new Error("Forbidden");
+      if (!can) throw new Error("task not found .");
       return Task.findById(id)
         .populate("assignee")
         .populate({ path: "project", populate: { path: "team" } });
     },
   },
-
   Mutation: {
     register: async (_p, { input }) => {
       const exists = await User.findOne({ email: input.email });
@@ -105,7 +114,7 @@ export const resolvers: IResolvers<any, Context> = {
       return { token, user };
     },
     updateUser: async (_p, { userId, name, role }, { user }) => {
-      requireAdmin(user);
+      requireRole(user, ["ADMIN"]);
 
       const updateFields: any = {};
       if (name !== undefined) updateFields.name = name;
@@ -121,7 +130,7 @@ export const resolvers: IResolvers<any, Context> = {
       return updatedUser;
     },
     createTeam: async (_p, { name }, { user }) => {
-      requireAuth(user);
+      requireRole(user, ["ADMIN", "MANAGER"]);
       const exists = await Team.findOne({ name });
       if (exists) {
         throw new Error("tema with this name already exists !!!");
@@ -134,7 +143,7 @@ export const resolvers: IResolvers<any, Context> = {
       return team;
     },
     addUserToTeam: async (_p, { teamId, userId }, { user }) => {
-      requireAdmin(user);
+      requireRole(user, ["ADMIN", "MANAGER"]);
       const can = await canManageTeam(user, new Types.ObjectId(teamId));
       if (!can) throw new Error("Forbidden");
 
@@ -183,6 +192,7 @@ export const resolvers: IResolvers<any, Context> = {
         assignee: input.assigneeId,
         project: projectId,
         createdBy: user._id,
+        dueDate: input.dueDate ? new Date(input.dueDate) : undefined,
       });
 
       return (await task.populate("assignee")).populate({
@@ -219,6 +229,9 @@ export const resolvers: IResolvers<any, Context> = {
             ...(input.assigneeId !== undefined
               ? { assignee: input.assigneeId }
               : {}),
+            ...(input.dueDate !== undefined
+              ? { dueDate: new Date(input.dueDate) }
+              : {}),
           },
         },
         { new: true }
@@ -227,6 +240,7 @@ export const resolvers: IResolvers<any, Context> = {
         .populate({ path: "project", populate: { path: "team" } });
 
       if (!task) throw NotFoundError("Task");
+
       return task;
     },
 

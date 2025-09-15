@@ -1,7 +1,6 @@
 import jwt from "jsonwebtoken";
 import { ApolloError, ForbiddenError } from "apollo-server-express";
 import { User, IUser } from "../models/User";
-import { error } from "console";
 
 const JWT_SECRET = process.env.JWT_SECRET || "changeme";
 
@@ -20,30 +19,24 @@ export const getUserFromToken = async (token?: string) => {
   if (!token) return null;
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as TokenPayload;
-    const user = await User.findById(decoded.id);
-    return user;
-  } catch {
-    console.error("invalid or expired token : ", error);
+    return User.findById(decoded.id);
+  } catch (err) {
+    console.error("Invalid or expired token:", err);
     return null;
   }
 };
 
-export const requireAuth = (user: IUser | null) => {
-  if (!user) {
+export const requireAuth = (user: IUser | null): IUser => {
+  if (!user)
     throw new ApolloError("Unauthorized: user not logged in or token invalid");
-  }
   return user;
 };
 
-export const requireAdmin = (user: IUser | null) => {
-  if (user?.role !== "ADMIN") {
-    throw new ForbiddenError("only admins can perform this action . !! ");
-  }
-};
-
-export const requireManager = (user: IUser | null) => {
+export const requireRole = (user: IUser | null, roles: string[]) => {
   requireAuth(user);
-  if (user?.role !== "MANAGER" && user?.role !== "ADMIN") {
-    throw new ForbiddenError("only admins can perform this action . !! ");
+  if (!roles.includes(user!.role)) {
+    throw new ForbiddenError(
+      `Access denied. Required role(s): ${roles.join(", ")}`
+    );
   }
 };
