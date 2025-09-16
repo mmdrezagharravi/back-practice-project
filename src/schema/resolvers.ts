@@ -185,7 +185,7 @@ export const resolvers: IResolvers<any, Context> = {
     },
 
     createTask: async (_p, { projectId, input }, { user }) => {
-      requireAuth(user);
+      requireRole(user, ["MANAGER", "ADMIN"]);
       const can = await hasProjectAccess(user, new Types.ObjectId(projectId));
       if (!can) throw new Error("Forbidden");
 
@@ -215,7 +215,7 @@ export const resolvers: IResolvers<any, Context> = {
       });
     },
     assignTask: async (_p, { taskId, userId }, { user }) => {
-      requireRole(user, ["MAMAGER", "ADMIN"]);
+      requireRole(user, ["MANAGER", "ADMIN"]);
       const task = await Task.findById(taskId).populate("project");
       if (!task) {
         throw NotFoundError("Task");
@@ -291,7 +291,7 @@ export const resolvers: IResolvers<any, Context> = {
     addComment: async (_p, { taskId, text }, { user }) => {
       requireAuth(user);
       const can = await hasTaskAccess(user, new Types.ObjectId(taskId));
-      if (!can) throw new Error("Forbidden");
+      if (!can) throw new Error("شما اجازه ی دسترسی به این تسک رو ندارین ");
       const c = await Comment.create({ text, author: user._id, task: taskId });
       return (await c.populate("author")).populate("task");
     },
