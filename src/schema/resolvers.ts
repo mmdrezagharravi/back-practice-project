@@ -158,9 +158,23 @@ export const resolvers: IResolvers<any, Context> = {
       }
       return team;
     },
+    removeUserFromTeam: async (_p, { teamId, userId }, { user }) => {
+      requireRole(user, ["ADMIN", "MANAGER"]);
+
+      const team = await Team.findById(teamId);
+      if (!team) throw new Error("Team not found .");
+
+      const isMember = team.members.find((m) => m.toString() === userId);
+      if (!isMember) throw new Error("user is not a member of this team !!!");
+
+      team.members = team.members.filter((m) => m.toString() !== userId);
+      await team.save();
+
+      return team.populate("members");
+    },
 
     createProject: async (_p, { teamId, name }, { user }) => {
-      requireAuth(user);
+      requireRole(user, ["MANAGER"]);
       const exists = await Project.findOne({ name });
       if (exists) {
         throw new Error("Projecvt with this name already exists !!!");
@@ -200,9 +214,26 @@ export const resolvers: IResolvers<any, Context> = {
         populate: { path: "team" },
       });
     },
+    assignTask: async (_p, { taskId, userId }, { user }) => {
+      requireRole(user, ["MAMAGER", "ADMIN"]);
+      const task = await Task.findById(taskId).populate("project");
+      if (!task) {
+        throw NotFoundError("Task");
+      }
+      const project = task.project as any;
+      const member = await isTeamMember(
+        new Types.ObjectId(userId),
+        project.team
+      );
+      if (!member) throw new Error("Assignee must be a team member");
+
+      task.assignee = userId;
+      await task.save();
+      return task.populate("assignee");
+    },
 
     updateTask: async (_p, { id, input }, { user }) => {
-      requireAuth(user);
+      requireRole(user, ["ADMIN", "MANAGER"]);
       const can = await hasTaskAccess(user, new Types.ObjectId(id));
       if (!can) throw new Error("خطای دسترسی ب این امکان!!!");
 

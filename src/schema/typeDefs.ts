@@ -125,10 +125,12 @@ export const typeDefs = gql`
 
     createTeam(name: String!): Team!
     addUserToTeam(teamId: ID!, userId: ID!): Team!
+    removeUserFromTeam(teamId: ID!, userId: ID!): Team!
 
     createProject(teamId: ID!, name: String!): Project!
 
     createTask(projectId: ID!, input: TaskInput!): Task!
+    assignTask(taskId: ID!, userId: ID!): Task!
     updateTask(id: ID!, input: TaskUpdateInput!): Task!
     deleteTask(id: ID!): Boolean!
 
