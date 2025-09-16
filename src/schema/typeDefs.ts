@@ -125,7 +125,7 @@ input TaskUpdateInput {
 
     updateUser(userId: ID!, name: String, role: Role): User!
 
-    createTeam(name: String!): Team!
+   createTeam(name: String!, members: [ID!]): Team!
     addUserToTeam(teamId: ID!, userId: ID!): Team!
     removeUserFromTeam(teamId: ID!, userId: ID!): Team!
 

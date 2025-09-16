@@ -142,19 +142,27 @@ export const resolvers: IResolvers<any, Context> = {
       if (!updatedUser) throw new Error("User not found");
       return updatedUser;
     },
-    createTeam: async (_p, { name }, { user }) => {
-      requireRole(user, ["ADMIN", "MANAGER"]);
-      const exists = await Team.findOne({ name });
-      if (exists) {
-        throw new Error("team with this name already exists !!!");
-      }
-      const team = await Team.create({
-        name,
-        members: [user._id],
-        createdBy: user._id,
-      });
-      return team;
-    },
+   createTeam: async (_p, { name, members }, { user }) => {
+  requireAuth(user);
+  const exists = await Team.findOne({ name });
+  if (exists) {
+    throw new Error("team with this name already exists !!!");
+  }
+
+  const membersToAdd = members || []; // Use provided members or an empty array
+
+  // Ensure the creator is also a member if not already selected
+  if (!membersToAdd.includes(user._id.toString())) {
+      membersToAdd.push(user._id.toString());
+  }
+
+  const team = await Team.create({
+    name,
+    members: membersToAdd,
+    createdBy: user._id,
+  });
+  return team;
+},
     addUserToTeam: async (_p, { teamId, userId }, { user }) => {
       requireRole(user, ["ADMIN", "MANAGER"]);
       const can = await canManageTeam(user, new Types.ObjectId(teamId));
@@ -186,16 +194,21 @@ export const resolvers: IResolvers<any, Context> = {
       return team.populate("members");
     },
 
-    createProject: async (_p, { teamId, name }, { user }) => {
-      requireRole(user, ["MANAGER"]);
-      const exists = await Project.findOne({ name });
-      if (exists) {
-        throw new Error("Projecvt with this name already exists !!!");
-      }
-      const isMember = await isTeamMember(user._id, new Types.ObjectId(teamId));
-      if (!isMember && user.role !== "ADMIN") throw new Error("Forbidden");
-      return Project.create({ name, team: teamId });
-    },
+  createProject: async (_p, { teamId, name }, { user }) => {
+  requireRole(user, ['MANAGER', 'ADMIN']); 
+
+  const exists = await Project.findOne({ name });
+  if (exists) {
+    throw new Error("Project with this name already exists !!!");
+  }
+  
+  const isMember = await isTeamMember(user._id, new Types.ObjectId(teamId));
+  if (!isMember && user.role !== "ADMIN" && user.role !== "MANAGER") {
+    throw new Error("Forbidden");
+  }
+  
+  return Project.create({ name, team: teamId });
+},
 
     createTask: async (_p, { projectId, input }, { user }) => {
       requireRole(user, ["MANAGER", "ADMIN"]);
