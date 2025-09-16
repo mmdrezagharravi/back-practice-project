@@ -53,7 +53,7 @@ export const resolvers: IResolvers<any, Context> = {
 
     tasks: async (
       _p,
-      { projectId, page = 3, limit = 100, status },
+      { projectId, page = 1, limit = 30, status },
       { user }
     ) => {
       requireAuth(user);
@@ -95,6 +95,19 @@ export const resolvers: IResolvers<any, Context> = {
         .populate("assignee")
         .populate({ path: "project", populate: { path: "team" } });
     },
+
+    // ------------------------------------
+    // New Resolver for "myTasks"
+    // ------------------------------------
+    myTasks: async (_p, _a, { user }) => {
+      requireAuth(user);
+      const myAssignedTasks = await Task.find({ assignee: user._id })
+        .populate("assignee")
+        .populate({ path: "project", populate: { path: "team" } });
+
+      return myAssignedTasks;
+    },
+    // ------------------------------------
   },
   Mutation: {
     register: async (_p, { input }) => {
@@ -133,7 +146,7 @@ export const resolvers: IResolvers<any, Context> = {
       requireRole(user, ["ADMIN", "MANAGER"]);
       const exists = await Team.findOne({ name });
       if (exists) {
-        throw new Error("tema with this name already exists !!!");
+        throw new Error("team with this name already exists !!!");
       }
       const team = await Team.create({
         name,
@@ -234,16 +247,27 @@ export const resolvers: IResolvers<any, Context> = {
 
     updateTask: async (_p, { id, input }, { user }) => {
       requireRole(user, ["ADMIN", "MANAGER"]);
+
+      const taskToUpdate = await Task.findById(id);
+      if (!taskToUpdate) throw NotFoundError("Task");
+      
+      // Check if the current user is the assignee of the task
+      const isAssignee = taskToUpdate.assignee && taskToUpdate.assignee.toString() === user._id.toString();
+
+      // Check if the user has broader access (e.g., project manager, admin)
       const can = await hasTaskAccess(user, new Types.ObjectId(id));
-      if (!can) throw new Error("خطای دسترسی ب این امکان!!!");
+
+      // If the user is neither the assignee nor has project access, throw an error
+      if (!isAssignee && !can) {
+        throw new Error("خطای دسترسی ب این امکان!!!");
+      }
 
       if (input.assigneeId) {
-        const task = await Task.findById(id).populate("project");
-        if (!task) throw NotFoundError("Task");
-        const project = task.project as any;
+        const project = await Project.findById(taskToUpdate.project);
+        if (!project) throw NotFoundError("Project");
         const member = await isTeamMember(
           new Types.ObjectId(input.assigneeId),
-          project.team
+          project.team as Types.ObjectId
         );
         if (!member) throw new Error("Assignee must be a team member");
       }
@@ -253,16 +277,11 @@ export const resolvers: IResolvers<any, Context> = {
         {
           $set: {
             ...(input.title !== undefined ? { title: input.title } : {}),
-            ...(input.description !== undefined
-              ? { description: input.description }
-              : {}),
+            ...(input.description !== undefined ? { description: input.description } : {}),
             ...(input.status !== undefined ? { status: input.status } : {}),
-            ...(input.assigneeId !== undefined
-              ? { assignee: input.assigneeId }
-              : {}),
-            ...(input.dueDate !== undefined
-              ? { dueDate: new Date(input.dueDate) }
-              : {}),
+            ...(input.assigneeId !== undefined ? { assignee: input.assigneeId } : {}),
+            ...(input.dueDate !== undefined ? { dueDate: input.dueDate } : {}),
+            ...(input.comments !== undefined ? { comments: input.comments } : {}),
           },
         },
         { new: true }

@@ -96,13 +96,14 @@ export const typeDefs = gql`
     dueDate: String
   }
 
-  input TaskUpdateInput {
-    title: String
-    description: String
-    status: TaskStatus
-    assigneeId: ID
-    dueDate: String
-  }
+input TaskUpdateInput {
+  title: String
+  description: String
+  status: TaskStatus
+  assigneeId: ID
+  dueDate: String # Add this field
+  comments: String # Add this field
+}
 
   type Query {
     me: User
@@ -111,9 +112,10 @@ export const typeDefs = gql`
     tasks(
       projectId: ID!
       page: Int = 1
-      limit: Int = 10
+      limit: Int = 30
       status: TaskStatus
-    ): TaskPage!
+      ): TaskPage!
+      myTasks: [Task!]!
     task(id: ID!): Task
   }
 
