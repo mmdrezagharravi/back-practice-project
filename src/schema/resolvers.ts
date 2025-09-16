@@ -18,7 +18,7 @@ import { Types } from "mongoose";
 interface Context {
   user: any | null;
 }
-
+// awd 
 export const resolvers: IResolvers<any, Context> = {
   Query: {
     me: async (_p, _a, { user }) => user || null,
