@@ -138,7 +138,7 @@ export const resolvers: IResolvers<any, Context> = {
         return { token, user };
       } catch (error: any) {
         if (error?.code === 11000) {
-          throw new ApolloError("Email already in use", "EMAIL_TAKEN");
+          throw new ApolloError("Emaill already in use", "EMAIL_TAKEN");
         }
         throw error;
       }
