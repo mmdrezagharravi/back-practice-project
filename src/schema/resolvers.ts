@@ -1,4 +1,3 @@
-// src/schema/resolvers.ts
 import { IResolvers } from "@graphql-tools/utils";
 import {
   ApolloError,
