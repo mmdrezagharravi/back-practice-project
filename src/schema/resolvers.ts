@@ -1,4 +1,3 @@
-// src/schema/resolvers.ts
 import { IResolvers } from "@graphql-tools/utils";
 import {
   ApolloError,
@@ -47,7 +46,11 @@ interface Context {
 
 export const resolvers: IResolvers<any, Context> = {
   Query: {
-    me: async (_p, _a, { user }) => user || null,
+    me: async (_p, _a, { user }) => {
+      console.log(`parent : ${_p} , 
+args : ${_a}`);
+      return user || null;
+    },
 
     users: async (_p, _a, { user }) => {
       requireRole(user, ["ADMIN"]);
@@ -137,7 +140,7 @@ export const resolvers: IResolvers<any, Context> = {
         const token = signToken(user);
         return { token, user };
       } catch (error: any) {
-        if (error?.code === 11000) {
+        if (error) {
           throw new ApolloError("Emaill already in use", "EMAIL_TAKEN");
         }
         throw error;
@@ -248,7 +251,7 @@ export const resolvers: IResolvers<any, Context> = {
     },
 
     createTask: async (_p, { projectId, input }, { user }) => {
-      requireAuth(user);
+      requireRole(user, ["MANAGER", "ADMIN"]);
       const { projectId: pid } = await validateDTO(ProjectIdDto, { projectId });
       const dto = await validateDTO(CreateTaskDto, input);
 
@@ -355,7 +358,7 @@ export const resolvers: IResolvers<any, Context> = {
     },
 
     deleteTask: async (_p, { id }, { user }) => {
-      requireAuth(user);
+      requireRole(user, ["ADMIN", "MANAGER"]);
       const { id: taskId } = await validateDTO(GenericIdDto, { id });
 
       const t = await Task.findById(taskId);

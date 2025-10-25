@@ -23,7 +23,7 @@ export const connectDB = async (uri: string) => {
         console.log(`retrying in ${RETRY_DELAY / 1000}s...`);
         await new Promise((res) => setTimeout(res, RETRY_DELAY));
       } else {
-        console.error("culd not connect to mongoDB afet maximum retries. ");
+        console.error("culd not connect to mongoDB after maximum retries. ");
         process.exit(1);
       }
     }
