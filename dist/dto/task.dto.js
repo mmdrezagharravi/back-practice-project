@@ -80,7 +80,6 @@ __decorate([
     (0, class_validator_1.IsMongoId)(),
     __metadata("design:type", String)
 ], AssignTaskDto.prototype, "userId", void 0);
-// برای Query.tasks (page/limit/status) – با پیش‌فرض‌های فعلی تو
 class TaskListQueryDto {
     constructor() {
         this.page = 3;

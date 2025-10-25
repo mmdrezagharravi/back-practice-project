@@ -14,8 +14,8 @@ async function validateDTO(cls, payload) {
         validationError: { target: false, value: false },
     });
     if (errors.length) {
-        const messages = errors.flatMap((e) => Object.values(e.constraints || {}));
-        throw new apollo_server_express_1.UserInputError("Validation failed", { errors: messages }); // BAD_USER_INPUT
+        const messages = errors.flatMap((error) => Object.values(error.constraints || {}));
+        throw new apollo_server_express_1.UserInputError("Validation failed", { errors: messages });
     }
     return instance;
 }

@@ -57,14 +57,6 @@ async function bootstrap() {
     httpServer.close();
     await mongoose.disconnect();
   });
-
-  process.on("SIGTERM", async () => {
-    // docker stoping
-    console.log(" Shutting down server...");
-    httpServer.close();
-    await mongoose.disconnect();
-    process.exit(0); // ✅
-  });
 }
 bootstrap().catch((error) => {
   console.error(" Server crashed:", error);

@@ -26,7 +26,6 @@ UserSchema.pre("save", async function (next) {
     if (!this.isModified("password"))
         return next();
     const salt = await bcrypt_1.default.genSalt(10);
-    // @ts-ignore
     this.password = await bcrypt_1.default.hash(this.password, salt);
     next();
 });

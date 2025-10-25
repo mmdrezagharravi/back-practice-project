@@ -12,7 +12,6 @@ const error_1 = require("../utils/error");
 const auth_1 = require("../middleware/auth");
 const permissions_1 = require("../utils/permissions");
 const validate_1 = require("../utils/validate");
-// DTOs
 const auth_dto_1 = require("../dto/auth.dto");
 const user_dto_1 = require("../dto/user.dto");
 const team_dto_1 = require("../dto/team.dto");
@@ -22,13 +21,17 @@ const params_dto_1 = require("../dto/params.dto");
 const comment_dto_1 = require("../dto/comment.dto");
 exports.resolvers = {
     Query: {
-        me: async (_p, _a, { user }) => user || null,
+        me: async (_p, _a, { user }) => {
+            console.log(`parent : ${_p} , 
+args : ${_a}`);
+            return user || null;
+        },
         users: async (_p, _a, { user }) => {
             (0, auth_1.requireRole)(user, ["ADMIN"]);
             return User_1.User.find({});
         },
         teams: async (_p, _a, { user }) => {
-            (0, auth_1.requireAuth)(user); // قبلاً بدون پرانتز بود
+            (0, auth_1.requireAuth)(user);
             if (user.role === "ADMIN") {
                 return Team_1.Team.find({});
             }
@@ -56,7 +59,6 @@ exports.resolvers = {
                 throw (0, error_1.ForbiddenError)();
             const filter = { project: dto.projectId };
             if (user.role !== "ADMIN") {
-                // اگر ادمین نباشد فقط تسک‌های assign شده به خودش را می‌بیند
                 filter.assignee = user._id;
             }
             if (dto.status)
@@ -83,7 +85,6 @@ exports.resolvers = {
             (0, auth_1.requireAuth)(user);
             const { id: taskId } = await (0, validate_1.validateDTO)(params_dto_1.GenericIdDto, { id });
             const can = await (0, permissions_1.hasTaskAccess)(user, new mongoose_1.Types.ObjectId(taskId));
-            // برای جلوگیری از enumeration، اگر دسترسی نداری مثل not found پاسخ بده
             if (!can)
                 throw (0, error_1.NotFoundError)("Task");
             return Task_1.Task.findById(taskId)
@@ -102,18 +103,18 @@ exports.resolvers = {
                 const token = (0, auth_1.signToken)(user);
                 return { token, user };
             }
-            catch (e) {
-                if (e?.code === 11000) {
-                    throw new apollo_server_express_1.ApolloError("Email already in use", "EMAIL_TAKEN");
+            catch (error) {
+                if (error) {
+                    throw new apollo_server_express_1.ApolloError("Emaill already in use", "EMAIL_TAKEN");
                 }
-                throw e;
+                throw error;
             }
         },
         login: async (_p, { email, password }) => {
             const dto = await (0, validate_1.validateDTO)(auth_dto_1.LoginDto, { email, password });
             const user = await User_1.User.findOne({ email: dto.email });
             if (!user || !(await user.comparePassword(dto.password))) {
-                throw new apollo_server_express_1.AuthenticationError("ایمیل یا رمز عبور اشتباه است"); // UNAUTHENTICATED
+                throw new apollo_server_express_1.AuthenticationError("ایمیل یا رمز عبور اشتباه است");
             }
             const token = (0, auth_1.signToken)(user);
             return { token, user };
@@ -157,7 +158,7 @@ exports.resolvers = {
             if (!u)
                 throw (0, error_1.NotFoundError)("User");
             if (!team.members.find((m) => m.toString() === dto.userId)) {
-                team.members.push(u._id); // نگه‌داشتن نوع ObjectId
+                team.members.push(u._id);
                 await team.save();
             }
             return team;
@@ -176,7 +177,7 @@ exports.resolvers = {
             return team.populate("members");
         },
         createProject: async (_p, { teamId, name }, { user }) => {
-            (0, auth_1.requireRole)(user, ["MANAGER"]);
+            (0, auth_1.requireRole)(user, ["MANAGER", "ADMIN"]);
             const dto = await (0, validate_1.validateDTO)(project_dto_1.CreateProjectDto, { teamId, name });
             const exists = await Project_1.Project.findOne({ name: dto.name });
             if (exists)
@@ -187,7 +188,7 @@ exports.resolvers = {
             return Project_1.Project.create({ name: dto.name, team: dto.teamId });
         },
         createTask: async (_p, { projectId, input }, { user }) => {
-            (0, auth_1.requireAuth)(user);
+            (0, auth_1.requireRole)(user, ["MANAGER", "ADMIN"]);
             const { projectId: pid } = await (0, validate_1.validateDTO)(params_dto_1.ProjectIdDto, { projectId });
             const dto = await (0, validate_1.validateDTO)(task_dto_1.CreateTaskDto, input);
             const can = await (0, permissions_1.hasProjectAccess)(user, new mongoose_1.Types.ObjectId(pid));
@@ -216,7 +217,7 @@ exports.resolvers = {
             });
         },
         assignTask: async (_p, { taskId, userId }, { user }) => {
-            (0, auth_1.requireRole)(user, ["MANAGER", "ADMIN"]); // اصلاح املای MANAGER
+            (0, auth_1.requireRole)(user, ["MANAGER", "ADMIN"]);
             const dto = await (0, validate_1.validateDTO)(task_dto_1.AssignTaskDto, { taskId, userId });
             const task = await Task_1.Task.findById(dto.taskId).populate("project");
             if (!task)
@@ -267,7 +268,7 @@ exports.resolvers = {
             return task;
         },
         deleteTask: async (_p, { id }, { user }) => {
-            (0, auth_1.requireAuth)(user);
+            (0, auth_1.requireRole)(user, ["ADMIN", "MANAGER"]);
             const { id: taskId } = await (0, validate_1.validateDTO)(params_dto_1.GenericIdDto, { id });
             const t = await Task_1.Task.findById(taskId);
             if (!t)
@@ -285,15 +286,14 @@ exports.resolvers = {
             const can = await (0, permissions_1.hasTaskAccess)(user, new mongoose_1.Types.ObjectId(dto.taskId));
             if (!can)
                 throw (0, error_1.ForbiddenError)();
-            const c = await Comment_1.Comment.create({
+            const Create = await Comment_1.Comment.create({
                 text: dto.text,
                 author: user._id,
                 task: dto.taskId,
             });
-            return (await c.populate("author")).populate("task");
+            return (await Create.populate("author")).populate("task");
         },
     },
-    // Field resolvers (روابط)
     User: {
         teams: async (parent) => Team_1.Team.find({ members: parent._id }),
     },

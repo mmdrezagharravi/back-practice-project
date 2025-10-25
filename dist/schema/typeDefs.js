@@ -98,14 +98,14 @@ exports.typeDefs = (0, apollo_server_express_1.gql) `
     dueDate: String
   }
 
-input TaskUpdateInput {
-  title: String
-  description: String
-  status: TaskStatus
-  assigneeId: ID
-  dueDate: String # Add this field
-  comments: String # Add this field
-}
+  input TaskUpdateInput {
+    title: String
+    description: String
+    status: TaskStatus
+    assigneeId: ID
+    dueDate: String
+    comments: String
+  }
 
   type Query {
     me: User
@@ -116,8 +116,8 @@ input TaskUpdateInput {
       page: Int = 1
       limit: Int = 30
       status: TaskStatus
-      ): TaskPage!
-      myTasks: [Task!]!
+    ): TaskPage!
+    myTasks: [Task!]!
     task(id: ID!): Task
   }
 

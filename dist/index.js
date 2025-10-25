@@ -41,18 +41,13 @@ async function bootstrap() {
         console.log(`🚀 Server ready at http://localhost:${PORT}${server.graphqlPath}`);
     });
     process.on("SIGINT", async () => {
+        // ctrl + c
         console.log(" Shutting down server...");
         httpServer.close();
         await mongoose_1.default.disconnect();
-    });
-    process.on("SIGTERM", async () => {
-        console.log(" Shutting down server...");
-        httpServer.close();
-        await mongoose_1.default.disconnect();
-        process.exit(0);
     });
 }
-bootstrap().catch((e) => {
-    console.error(" Server crashed:", e);
-    process.exit(1);
+bootstrap().catch((error) => {
+    console.error(" Server crashed:", error);
+    process.exit(1); // ❌
 });
