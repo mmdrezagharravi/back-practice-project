@@ -68,6 +68,12 @@ export const typeDefs = gql`
     createdAt: String!
     updatedAt: String!
   }
+  type ProjectPage {
+    items: [Project!]!
+    page: Int!
+    totalItems: Int!
+    totalPages: Int!
+  }
 
   type TaskPage {
     items: [Task!]!
@@ -107,15 +113,11 @@ export const typeDefs = gql`
 
   type Query {
     me: User
+    users: [User!]!
     teams: [Team!]!
     projects(teamId: ID!): [Project!]!
-    tasks(
-      projectId: ID!
-      page: Int = 1
-      limit: Int = 30
-      status: TaskStatus
-    ): TaskPage!
-    myTasks: [Task!]!
+    myProjects(page: Int, limit: Int): ProjectPage!
+    tasks(projectId: ID!, status: TaskStatus, page: Int, limit: Int): TaskPage!
     task(id: ID!): Task
   }
 

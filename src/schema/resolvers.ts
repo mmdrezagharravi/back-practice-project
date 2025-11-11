@@ -39,6 +39,8 @@ import {
 } from "../dto/task.dto";
 import { TeamIdDto, ProjectIdDto, GenericIdDto } from "../dto/params.dto";
 import { AddCommentDto } from "../dto/comment.dto";
+import { populate } from "dotenv";
+import { link } from "fs";
 
 interface Context {
   user: any | null;
@@ -79,6 +81,37 @@ args : ${_a}`);
       if (!isMember && user.role !== "ADMIN") throw ForbiddenError();
 
       return Project.find({ team: dto.teamId });
+    },
+    myProjects: async (_p, args, { user }) => {
+      requireAuth(user);
+
+      const page = args.page || 1;
+      const limit = 10;
+
+      const filter: any = {};
+
+      if (user.role !== "ADMIN") {
+        const userTeams = await Team.find({ members: user._id }).select("_id");
+        const teamIds = userTeams.map((team) => team._id);
+        filter.team = { $in: teamIds };
+      }
+      const skip = (page - 1) * limit;
+
+      const [items, totalItems] = await Promise.all([
+        Project.find(filter)
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(limit)
+          .populate("team"),
+        Project.countDocuments(filter),
+      ]);
+      return {
+        items,
+        page,
+        limit,
+        totalItems,
+        totalPages: Math.ceil(totalItems / limit),
+      };
     },
 
     tasks: async (_p, args, { user }) => {
