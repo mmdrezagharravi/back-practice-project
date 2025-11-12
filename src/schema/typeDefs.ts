@@ -23,11 +23,6 @@ export const typeDefs = gql`
     updatedAt: String!
   }
 
-  type Query {
-    me: User
-    users: [User!]!
-  }
-
   type Team {
     id: ID!
     name: String!
@@ -96,27 +91,24 @@ export const typeDefs = gql`
     dueDate: String
   }
 
-input TaskUpdateInput {
-  title: String
-  description: String
-  status: TaskStatus
-  assigneeId: ID
-  dueDate: String # Add this field
-  comments: String # Add this field
-}
+  input TaskUpdateInput {
+    title: String
+    description: String
+    status: TaskStatus
+    assigneeId: ID
+    dueDate: String
+    comments: String
+  }
 
   type Query {
     me: User
+    users: [User!]!
     teams: [Team!]!
     projects(teamId: ID!): [Project!]!
-    tasks(
-      projectId: ID!
-      page: Int = 1
-      limit: Int = 30
-      status: TaskStatus
-      ): TaskPage!
-      myTasks: [Task!]!
+    myProjects: [Project!]!
+    tasks(projectId: ID!, page: Int = 1, limit: Int = 30, status: TaskStatus): TaskPage!
     task(id: ID!): Task
+    myTasks: [Task!]!
   }
 
   type Mutation {
@@ -125,7 +117,7 @@ input TaskUpdateInput {
 
     updateUser(userId: ID!, name: String, role: Role): User!
 
-   createTeam(name: String!, members: [ID!]): Team!
+    createTeam(name: String!, members: [ID!]): Team!
     addUserToTeam(teamId: ID!, userId: ID!): Team!
     removeUserFromTeam(teamId: ID!, userId: ID!): Team!
 
