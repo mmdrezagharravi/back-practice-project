@@ -1,30 +1,45 @@
 import { IResolvers } from "@graphql-tools/utils";
 import { ApolloError } from "apollo-server-express";
+import { Types } from "mongoose";
+
 import { User } from "../models/User";
 import { Team } from "../models/Team";
 import { Project } from "../models/Project";
 import { Task } from "../models/Task";
 import { Comment } from "../models/Comment";
-import { ForbiddenError, NotFoundError, ValidationError } from "../utils/error";
-import { signToken, requireAuth, requireRole } from "../middleware/auth";
+
+import {
+  ForbiddenError,
+  NotFoundError,
+  ValidationError,
+} from "../utils/error";
+
+import {
+  signToken,
+  requireAuth,
+  requireRole,
+} from "../middleware/auth";
+
 import {
   canManageTeam,
   hasProjectAccess,
   hasTaskAccess,
   isTeamMember,
 } from "../utils/permissions";
-import { Types } from "mongoose";
 
 interface Context {
   user: any | null;
 }
 
 export const resolvers: IResolvers<any, Context> = {
+  // --------------------------------------------------
+  // QUERIES
+  // --------------------------------------------------
   Query: {
-    // Return current user info
+    /** Return current user info */
     me: async (_p, _a, { user }) => user || null,
 
-    // Return users list (ADMIN → all, MANAGER → team members)
+    /** Return users list (ADMIN → all, MANAGER → team members) */
     users: async (_p, _a, { user }) => {
       requireAuth(user);
 
@@ -41,19 +56,21 @@ export const resolvers: IResolvers<any, Context> = {
         return User.find({ _id: { $in: Array.from(memberIds) } });
       }
 
-      throw new Error("Only admins and managers can view users.");
+      // throw new ForbiddenError("Only admins and managers can view users.");
     },
 
+    /** Return teams based on user role */
     teams: async (_p, _a, { user }) => {
       requireAuth(user);
 
+      // ADMIN: all teams
       if (user.role === "ADMIN") return Team.find({});
-      if (user.role === "MANAGER") return Team.find({ members: user._id });
 
-      throw new Error("Only admin and manager can access teams.");
+      // MANAGER or MEMBER: teams they belong to
+      return Team.find({ members: user._id });
     },
 
-    // Return projects by team (if user is member or admin)
+    /** Return projects for a specific team (if user has access) */
     projects: async (_p, { teamId }, { user }) => {
       requireAuth(user);
 
@@ -70,24 +87,27 @@ export const resolvers: IResolvers<any, Context> = {
       return Project.find({ team: teamId });
     },
 
-  
-    myProjects: async (_p, _a, { user }) => {
-      requireAuth(user);
+    /** Return projects belonging to the teams the current user is part of */
+    myProjects: async (_p, _a, { user }) => {
+      requireAuth(user);
 
-      const teams = await Team.find({ members: user._id });
-      if (!teams.length) return [];
+      const userId = new Types.ObjectId(user._id);
 
-      const teamIds = teams.map((t) => t._id);
-      const projects = await Project.find({ team: { $in: teamIds } }).populate("team");
-      return projects;
-    },
+      const teams = await Team.find({ members: userId });
+      if (!teams.length) return [];
 
-    // Return paginated tasks of a project
+      const teamIds = teams.map((t) => t._id);
+      const projects = await Project.find({ team: { $in: teamIds } }).populate("team");
+
+      return projects;
+    },
+
+    /** Return paginated tasks of a project */
     tasks: async (_p, { projectId, page = 1, limit = 30, status }, { user }) => {
       requireAuth(user);
 
       const can = await hasProjectAccess(user, new Types.ObjectId(projectId));
-      if (!can) throw new Error("Forbidden");
+      if (!can) throw ForbiddenError();
 
       const filter: any = { project: projectId };
       if (user.role === "MEMBER") filter.assignee = user._id;
@@ -113,19 +133,22 @@ export const resolvers: IResolvers<any, Context> = {
       };
     },
 
-    // Return a single task by ID (with access check)
+    /** Return single task (with access check) */
     task: async (_p, { id }, { user }) => {
       requireAuth(user);
 
       const can = await hasTaskAccess(user, new Types.ObjectId(id));
-      if (!can) throw new Error("Task not found or forbidden");
+      if (!can) throw ForbiddenError();
 
-      return Task.findById(id)
+      const task = await Task.findById(id)
         .populate("assignee")
         .populate({ path: "project", populate: { path: "team" } });
+
+      if (!task) throw NotFoundError("Task");
+      return task;
     },
 
-    // Return all tasks assigned to current user
+    /** Return all tasks assigned to the logged-in user */
     myTasks: async (_p, _a, { user }) => {
       requireAuth(user);
 
@@ -135,11 +158,14 @@ export const resolvers: IResolvers<any, Context> = {
     },
   },
 
+  // --------------------------------------------------
+  // MUTATIONS
+  // --------------------------------------------------
   Mutation: {
     // --- AUTH ---
     register: async (_p, { input }) => {
       const exists = await User.findOne({ email: input.email });
-      if (exists) throw new Error("Email already in use");
+      if (exists) throw new ApolloError("Email already in use");
 
       const user = await User.create(input);
       const token = signToken(user);
@@ -149,6 +175,7 @@ export const resolvers: IResolvers<any, Context> = {
     login: async (_p, { email, password }) => {
       const user = await User.findOne({ email });
       if (!user) throw new ApolloError("User not found");
+
       const ok = await user.comparePassword(password);
       if (!ok) throw new ApolloError("Incorrect password");
 
@@ -170,7 +197,7 @@ export const resolvers: IResolvers<any, Context> = {
         { new: true }
       );
 
-      if (!updatedUser) throw new Error("User not found");
+      if (!updatedUser) throw NotFoundError("User");
       return updatedUser;
     },
 
@@ -179,7 +206,7 @@ export const resolvers: IResolvers<any, Context> = {
       requireAuth(user);
 
       const exists = await Team.findOne({ name });
-      if (exists) throw new Error("Team with this name already exists");
+      if (exists) throw new ApolloError("Team with this name already exists");
 
       const membersToAdd = members || [];
       if (!membersToAdd.includes(user._id.toString())) {
@@ -197,30 +224,30 @@ export const resolvers: IResolvers<any, Context> = {
       requireRole(user, ["ADMIN", "MANAGER"]);
 
       const can = await canManageTeam(user, new Types.ObjectId(teamId));
-      if (!can) throw new Error("Forbidden");
+      if (!can) throw ForbiddenError();
 
       const team = await Team.findById(teamId);
-      if (!team) throw new Error("Team not found");
+      if (!team) throw NotFoundError("Team");
 
       const u = await User.findById(userId);
-      if (!u) throw new Error("User not found");
+      if (!u) throw NotFoundError("User");
 
-      if (!team.members.includes(userId)) {
-        team.members.push(u.id);
+      if (!team.members.includes(u._id)) {
+        team.members.push(u._id);
         await team.save();
       }
 
-      return team;
+      return team.populate("members");
     },
 
     removeUserFromTeam: async (_p, { teamId, userId }, { user }) => {
       requireRole(user, ["ADMIN", "MANAGER"]);
 
       const team = await Team.findById(teamId);
-      if (!team) throw new Error("Team not found");
+      if (!team) throw NotFoundError("Team");
 
       if (!team.members.includes(userId)) {
-        throw new Error("User is not a member of this team");
+        throw new ApolloError("User is not a member of this team");
       }
 
       team.members = team.members.filter((m) => m.toString() !== userId);
@@ -234,11 +261,11 @@ export const resolvers: IResolvers<any, Context> = {
       requireRole(user, ["ADMIN", "MANAGER"]);
 
       const exists = await Project.findOne({ name });
-      if (exists) throw new Error("Project with this name already exists");
+      if (exists) throw new ApolloError("Project with this name already exists");
 
       const isMember = await isTeamMember(user._id, new Types.ObjectId(teamId));
       if (!isMember && user.role !== "ADMIN" && user.role !== "MANAGER") {
-        throw new Error("Forbidden");
+        throw ForbiddenError();
       }
 
       return Project.create({ name, team: teamId });
@@ -249,18 +276,18 @@ export const resolvers: IResolvers<any, Context> = {
       requireRole(user, ["MANAGER", "ADMIN"]);
 
       const can = await hasProjectAccess(user, new Types.ObjectId(projectId));
-      if (!can) throw new Error("Forbidden");
+      if (!can) throw ForbiddenError();
 
       if (input.assigneeId) {
         const project = await Project.findById(projectId);
-        if (!project) throw new Error("Project not found");
+        if (!project) throw NotFoundError("Project");
 
         const member = await isTeamMember(
           new Types.ObjectId(input.assigneeId),
           project.team as Types.ObjectId
         );
 
-        if (!member) throw new Error("Assignee must be a team member");
+        if (!member) throw new ApolloError("Assignee must be a team member");
       }
 
       const task = await Task.create({
@@ -291,7 +318,7 @@ export const resolvers: IResolvers<any, Context> = {
         project.team
       );
 
-      if (!member) throw new Error("Assignee must be a team member");
+      if (!member) throw new ApolloError("Assignee must be a team member");
 
       task.assignee = userId;
       await task.save();
@@ -309,7 +336,7 @@ export const resolvers: IResolvers<any, Context> = {
         taskToUpdate.assignee.toString() === user._id.toString();
 
       const can = await hasTaskAccess(user, new Types.ObjectId(id));
-      if (!isAssignee && !can) throw new Error("Access denied");
+      if (!isAssignee && !can) throw ForbiddenError();
 
       if (input.assigneeId) {
         const project = await Project.findById(taskToUpdate.project);
@@ -320,7 +347,7 @@ export const resolvers: IResolvers<any, Context> = {
           project.team as Types.ObjectId
         );
 
-        if (!member) throw new Error("Assignee must be a team member");
+        if (!member) throw new ApolloError("Assignee must be a team member");
       }
 
       const task = await Task.findByIdAndUpdate(
@@ -351,7 +378,7 @@ export const resolvers: IResolvers<any, Context> = {
       if (!task) throw NotFoundError("Task");
 
       const can = await hasTaskAccess(user, new Types.ObjectId(id));
-      if (!can) throw new Error("Forbidden");
+      if (!can) throw ForbiddenError();
 
       await Comment.deleteMany({ task: id });
       await Task.findByIdAndDelete(id);
@@ -363,7 +390,7 @@ export const resolvers: IResolvers<any, Context> = {
       requireAuth(user);
 
       const can = await hasTaskAccess(user, new Types.ObjectId(taskId));
-      if (!can) throw new Error("Access denied");
+      if (!can) throw ForbiddenError();
 
       const comment = await Comment.create({
         text,
@@ -375,6 +402,9 @@ export const resolvers: IResolvers<any, Context> = {
     },
   },
 
+  // --------------------------------------------------
+  // FIELD RESOLVERS
+  // --------------------------------------------------
   User: {
     teams: async (parent) => Team.find({ members: parent._id }),
   },

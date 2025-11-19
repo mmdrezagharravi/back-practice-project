@@ -109,6 +109,7 @@ export const typeDefs = gql`
     tasks(projectId: ID!, page: Int = 1, limit: Int = 30, status: TaskStatus): TaskPage!
     task(id: ID!): Task
     myTasks: [Task!]!
+    project(id: ID!): Project
   }
 
   type Mutation {
